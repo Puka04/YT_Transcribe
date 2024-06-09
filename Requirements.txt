@@ -1,0 +1,5 @@
+pytube
+pydub
+gradio
+soundfile
+whisper
