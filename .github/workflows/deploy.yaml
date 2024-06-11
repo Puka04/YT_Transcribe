@@ -1,4 +1,4 @@
-name: Deploy Application
+name: Update Space
 
 on:
   push:
@@ -6,28 +6,22 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
 
+    steps:
+      - uses: actions/checkout@v2
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.12.3
+          python-version: "3.12.3"
 
       - name: Install dependencies
         run: |
-          pip install pytube pydub gradio soundfile whisper
+          pip install -r requirements.txt
 
-      - name: Run Gradio interface
+      - name: Deploy to Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python youtube_transcriber.py
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          cname: your-custom-domain.com
+          gradio deploy
