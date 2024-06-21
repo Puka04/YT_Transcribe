@@ -1,0 +1,11 @@
+---
+title: "YT Transcriber"
+emoji: "🎥"
+colorFrom: "blue"
+colorTo: "purple"
+sdk: "gradio"
+app_file: "youtube_transcriber.py"  # Make sure this matches the name of your main application file
+pinned: false
+license: "MIT"
+---
+
