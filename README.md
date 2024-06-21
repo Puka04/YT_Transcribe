@@ -1,3 +1,9 @@
+---
+title: YT_Transcriber
+app_file: youtube_transcriber.py
+sdk: gradio
+sdk_version: 4.36.1
+---
 # YouTube Video Transcription and Semantic Chunking
 
 This project allows users to input a YouTube video URL, download the video, extract audio, transcribe the audio using Whisper, and perform semantic chunking on the transcription.
