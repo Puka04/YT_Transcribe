@@ -1,18 +1,4 @@
-<<<<<<< HEAD
----
-title: YT Transcriber
-emoji: 🏃
-colorFrom: green
-colorTo: gray
-sdk: gradio
-sdk_version: 4.36.1
-app_file: app.py
-pinned: false
-license: mit
----
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
-=======
 # YouTube Video Transcription and Semantic Chunking
 
 This project allows users to input a YouTube video URL, download the video, extract audio, transcribe the audio using Whisper, and perform semantic chunking on the transcription.
