@@ -3,6 +3,3 @@ pytube
 pydub
 git+https://github.com/openai/whisper.git
 soundfile
-requests
-
-
