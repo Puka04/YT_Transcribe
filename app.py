@@ -38,14 +38,19 @@ def extract_audio_from_video(video_path, audio_path="/tmp/youtube_audio/audio_te
 # Transcribe audio using Whisper model
 def transcribe_audio(audio_path):
     try:
-        # word_timestamps argument may not exist in your version; if so, remove it
         result = model.transcribe(audio_path)
         return result
     except Exception as e:
         print(f"Error transcribing audio: {e}")
         raise
 
-# Fallback chunking: split transcription text evenly based on audio length and fixed chunk duration
+# Save transcription to file
+def save_transcription_to_file(transcription_text, output_path="/tmp/transcription.txt"):
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(transcription_text)
+    return output_path
+
+# Fallback chunking
 def semantic_chunking_fallback(transcription_text, audio_length, chunk_duration=14.5):
     words = transcription_text.split()
     chunks = []
@@ -68,7 +73,7 @@ def semantic_chunking_fallback(transcription_text, audio_length, chunk_duration=
 
     return chunks
 
-# Semantic chunking using Whisper segments, fallback to above if segments missing
+# Semantic chunking
 def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
     try:
         audio = AudioSegment.from_file(audio_path)
@@ -77,12 +82,10 @@ def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
 
         segments = transcription_data.get("segments", [])
         if not segments:
-            # No segments from whisper, fallback
             print("No segments found in transcription, using fallback chunking.")
             transcription_text = transcription_data.get("text", "")
             return semantic_chunking_fallback(transcription_text, audio_length_s, chunk_duration=chunk_duration_ms/1000)
 
-        # Use segments from whisper for chunking
         chunk_id = 1
         current_chunk = {
             "chunk_id": chunk_id,
@@ -96,7 +99,6 @@ def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
             seg_end = segment['end']
             seg_text = segment['text'].strip()
 
-            # If adding this segment exceeds chunk_duration, close current chunk and start new
             if seg_end - current_chunk['start_time'] > chunk_duration_ms / 1000:
                 current_chunk['end_time'] = segment['start']
                 chunks.append(current_chunk)
@@ -113,11 +115,9 @@ def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
                 else:
                     current_chunk['text'] = seg_text
 
-        # Add the last chunk
         current_chunk['end_time'] = segments[-1]['end']
         chunks.append(current_chunk)
 
-        # Adjust chunk_length for each chunk
         for c in chunks:
             c['chunk_length'] = round(c['end_time'] - c['start_time'], 2)
 
@@ -127,6 +127,7 @@ def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
         print(f"Error during semantic chunking: {e}")
         raise
 
+# Main processing
 def process_video(video_url):
     try:
         if "youtube.com" not in video_url and "youtu.be" not in video_url:
@@ -143,23 +144,27 @@ def process_video(video_url):
         print("Transcribing audio...")
         transcription_data = transcribe_audio(audio_path)
         print("Transcription completed.")
-        print(f"Full Transcription: {transcription_data.get('text', '')}")
+        transcription_text = transcription_data.get('text', '')
+        print(f"Full Transcription: {transcription_text}")
 
         print("Performing semantic chunking...")
         chunks = semantic_chunking(transcription_data, audio_path)
         print("Semantic chunking completed.")
 
-        return transcription_data.get('text', ''), chunks, video_path, audio_path
+        file_path = save_transcription_to_file(transcription_text)
+
+        return transcription_text, chunks, file_path
 
     except Exception as e:
         print(f"Error processing video: {e}")
-        return f"An error occurred: {str(e)}", None, None, None
+        return f"An error occurred: {str(e)}", None, None
 
 # Gradio interface
 def gradio_interface(video_url):
-    transcription, chunks, video_path, audio_path = process_video(video_url)
-    return transcription, json.dumps(chunks, indent=4)
+    transcription, chunks, file_path = process_video(video_url)
+    return transcription, json.dumps(chunks, indent=4), file_path
 
+# Gradio UI
 iface = gr.Blocks()
 
 with iface:
@@ -173,8 +178,12 @@ with iface:
     with gr.Row():
         transcription_output = gr.Textbox(label="Transcription", lines=10, interactive=False)
         chunks_output = gr.JSON(label="Semantic Chunks")
+        download_file_output = gr.File(label="Download Transcription")
 
-    submit_btn.click(gradio_interface, inputs=video_url_input, outputs=[transcription_output, chunks_output])
+    submit_btn.click(gradio_interface, inputs=video_url_input,
+                     outputs=[transcription_output, chunks_output, download_file_output])
+    download_file_output = gr.File(label="Download Transcription")
+
 
 iface.css = """
 #transcribe-btn {
