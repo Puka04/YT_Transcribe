@@ -17,5 +17,5 @@ This project allows users to input a YouTube video URL, download the video, extr
 ## Example Usage
 
 ```python
-python youtube_trancriber.py
+python app.py
 ```
