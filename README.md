@@ -12,7 +12,7 @@ This project allows users to input a YouTube video URL, download the video, extr
 
 1. Clone the repository.
 2. Install the required libraries: `pip install -r Requirements.txt`
-3. Run the main script: `youtube_transcriber.py`
+3. Run the main script: `app.py`
 
 ## Example Usage
 
