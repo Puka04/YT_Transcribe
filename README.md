@@ -3,8 +3,7 @@
 This project allows users to input a YouTube video URL, download the video, extract audio, transcribe the audio using Whisper, and perform semantic chunking on the transcription
 
 ## Demo Video  
-[[🎥 Watch the demo]([https://github.com/Puka04/YT_Transcribe/blob/e41b15544ce853adb10d91c8084fbc75ea99be18/Assets/Output_Demo.mp4])
-
+![Demo](Assets/Output_Demo.gif)
 
 ## How to Use
 
