@@ -8,7 +8,7 @@ from pydub import AudioSegment
 # Initialize Whisper model
 model = whisper.load_model("base")
 
-# Download video using yt-dlp
+# Function to download video using yt-dlp
 def download_video(video_url, output_folder="/tmp/youtube_video"):
     os.makedirs(output_folder, exist_ok=True)
     video_path = os.path.join(output_folder, 'video_tempfile.mp4')
@@ -24,7 +24,7 @@ def download_video(video_url, output_folder="/tmp/youtube_video"):
         print(f"Error downloading video: {e}")
         raise
 
-# Extract audio from video
+# Function to extract audio from video
 def extract_audio_from_video(video_path, audio_path="/tmp/youtube_audio/audio_tempfile.wav"):
     os.makedirs(os.path.dirname(audio_path), exist_ok=True)
     try:
@@ -35,136 +35,82 @@ def extract_audio_from_video(video_path, audio_path="/tmp/youtube_audio/audio_te
         print(f"Error extracting audio: {e}")
         raise
 
-# Transcribe audio using Whisper model
+# Function to transcribe audio using Whisper model
 def transcribe_audio(audio_path):
     try:
         result = model.transcribe(audio_path)
-        return result
+        transcription = result['text']
+        return transcription
     except Exception as e:
         print(f"Error transcribing audio: {e}")
         raise
 
-# Save transcription to file
-def save_transcription_to_file(transcription_text, output_path="/tmp/transcription.txt"):
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(transcription_text)
-    return output_path
-
-# Fallback chunking
-def semantic_chunking_fallback(transcription_text, audio_length, chunk_duration=14.5):
-    words = transcription_text.split()
-    chunks = []
-    chunk_id = 1
-    total_chunks = int(audio_length // chunk_duration) + 1
-    words_per_chunk = len(words) // total_chunks if total_chunks > 0 else len(words)
-
-    for i in range(total_chunks):
-        start_time = i * chunk_duration
-        end_time = min((i + 1) * chunk_duration, audio_length)
-        chunk_words = words[i * words_per_chunk : (i + 1) * words_per_chunk]
-        chunks.append({
-            "chunk_id": chunk_id,
-            "chunk_length": round(end_time - start_time, 2),
-            "text": " ".join(chunk_words),
-            "start_time": round(start_time, 2),
-            "end_time": round(end_time, 2),
-        })
-        chunk_id += 1
-
-    return chunks
-
-# Semantic chunking
-def semantic_chunking(transcription_data, audio_path, chunk_duration_ms=14500):
+# Function to split audio and transcript into semantic chunks
+def semantic_chunking(transcription, audio_path, chunk_size=14500):
     try:
         audio = AudioSegment.from_file(audio_path)
-        audio_length_s = len(audio) / 1000
         chunks = []
-
-        segments = transcription_data.get("segments", [])
-        if not segments:
-            print("No segments found in transcription, using fallback chunking.")
-            transcription_text = transcription_data.get("text", "")
-            return semantic_chunking_fallback(transcription_text, audio_length_s, chunk_duration=chunk_duration_ms/1000)
-
         chunk_id = 1
-        current_chunk = {
-            "chunk_id": chunk_id,
-            "start_time": segments[0]['start'],
-            "end_time": 0,
-            "text": ""
-        }
+        words = transcription.split()
+        num_words = len(words)
+        chunk_length = num_words // (len(audio) // chunk_size)
 
-        for segment in segments:
-            seg_start = segment['start']
-            seg_end = segment['end']
-            seg_text = segment['text'].strip()
-
-            if seg_end - current_chunk['start_time'] > chunk_duration_ms / 1000:
-                current_chunk['end_time'] = segment['start']
-                chunks.append(current_chunk)
-                chunk_id += 1
-                current_chunk = {
-                    "chunk_id": chunk_id,
-                    "start_time": segment['start'],
-                    "end_time": 0,
-                    "text": seg_text
-                }
-            else:
-                if current_chunk['text']:
-                    current_chunk['text'] += " " + seg_text
-                else:
-                    current_chunk['text'] = seg_text
-
-        current_chunk['end_time'] = segments[-1]['end']
-        chunks.append(current_chunk)
-
-        for c in chunks:
-            c['chunk_length'] = round(c['end_time'] - c['start_time'], 2)
+        for start in range(0, len(audio), chunk_size):
+            end = min(start + chunk_size, len(audio))
+            text_chunk = ' '.join(words[(chunk_id-1)*chunk_length:chunk_id*chunk_length])
+            chunks.append({
+                "chunk_id": chunk_id,
+                "chunk_length": (end - start) / 1000,
+                "text": text_chunk,
+                "start_time": start / 1000,
+                "end_time": end / 1000,
+            })
+            chunk_id += 1
 
         return chunks
-
     except Exception as e:
         print(f"Error during semantic chunking: {e}")
         raise
 
-# Main processing
 def process_video(video_url):
     try:
+        # Validate the URL
         if "youtube.com" not in video_url and "youtu.be" not in video_url:
             raise ValueError("Invalid YouTube URL. Please provide a valid YouTube link.")
 
+        # Step 1: Download video
         print("Downloading video...")
         video_path = download_video(video_url)
         print(f"Video downloaded at {video_path}")
 
+        # Step 2: Extract audio
         print("Extracting audio from video...")
         audio_path = extract_audio_from_video(video_path)
         print(f"Audio extracted at {audio_path}")
 
+        # Step 3: Transcribe audio
         print("Transcribing audio...")
-        transcription_data = transcribe_audio(audio_path)
+        transcription = transcribe_audio(audio_path)
         print("Transcription completed.")
-        transcription_text = transcription_data.get('text', '')
-        print(f"Full Transcription: {transcription_text}")
+        print(f"Full Transcription: {transcription}")
 
+        # Step 4: Semantic chunking
         print("Performing semantic chunking...")
-        chunks = semantic_chunking(transcription_data, audio_path)
+        chunks = semantic_chunking(transcription, audio_path)
         print("Semantic chunking completed.")
 
-        file_path = save_transcription_to_file(transcription_text)
-
-        return transcription_text, chunks, file_path
+        return transcription, chunks, video_path, audio_path
 
     except Exception as e:
         print(f"Error processing video: {e}")
-        return f"An error occurred: {str(e)}", None, None
+        return f"An error occurred: {str(e)}", None, None, None
 
-# Gradio interface
+# Define a new Gradio interface with an enhanced layout
 def gradio_interface(video_url):
-    transcription, chunks, file_path = process_video(video_url)
-    return transcription, json.dumps(chunks, indent=4), file_path
+    transcription, chunks, video_path, audio_path = process_video(video_url)
+    return transcription, json.dumps(chunks, indent=4)
 
-# Gradio UI
+# Create a new Gradio interface
 iface = gr.Blocks()
 
 with iface:
@@ -178,13 +124,10 @@ with iface:
     with gr.Row():
         transcription_output = gr.Textbox(label="Transcription", lines=10, interactive=False)
         chunks_output = gr.JSON(label="Semantic Chunks")
-        download_file_output = gr.File(label="Download Transcription")
 
-    submit_btn.click(gradio_interface, inputs=video_url_input,
-                     outputs=[transcription_output, chunks_output, download_file_output])
-    download_file_output = gr.File(label="Download Transcription")
+    submit_btn.click(gradio_interface, inputs=video_url_input, outputs=[transcription_output, chunks_output])
 
-
+# Add custom CSS for the transcribe button
 iface.css = """
 #transcribe-btn {
     background-color: #4CAF50;
@@ -207,4 +150,5 @@ iface.css = """
 }
 """
 
+# Launch the Gradio app
 iface.launch()
